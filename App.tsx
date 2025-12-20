@@ -1,8 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { CameraStatus, PolaroidData } from './types.ts';
-import CameraLens from './components/CameraLens.tsx';
-import Polaroid from './components/Polaroid.tsx';
-import Customizer from './components/Customizer.tsx';
+import { CameraStatus, PolaroidData } from './types';
+import CameraLens from './components/CameraLens';
+import Polaroid from './components/Polaroid';
+import Customizer from './components/Customizer';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<CameraStatus>(CameraStatus.IDLE);
