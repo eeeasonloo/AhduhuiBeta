@@ -42,15 +42,11 @@ const App: React.FC = () => {
         canvas.height = 1000;
         
         ctx.clearRect(0, 0, 1000, 1000);
-        
-        // Apply filter to context BEFORE drawing
         ctx.filter = currentFilter;
         
         const x = (w - size) / 2;
         const y = (h - size) / 2;
         ctx.drawImage(img, x, y, size, size, 0, 0, 1000, 1000);
-        
-        // Reset filter for future operations
         ctx.filter = 'none';
         
         resolve(canvas.toDataURL('image/png'));
@@ -74,14 +70,21 @@ const App: React.FC = () => {
     const now = new Date();
     const formattedDate = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
     
-    const label = isGallery ? 'GALLERY FILM' : (currentAiPrompt ? 'AI ENHANCED' : (currentFilter !== 'none' ? 'FILTERED' : 'INSTANT'));
+    // Determine the style label based on the active transformation
+    let label = 'INSTANT FILM';
+    if (isGallery) label = 'GALLERY ARCHIVE';
+    else if (currentAiPrompt.includes('Anime')) label = 'ANIME VARIANT';
+    else if (currentAiPrompt.includes('Zootopia')) label = 'ZOOTOPIA CHARACTER';
+    else if (currentAiPrompt.includes('Pixar')) label = 'PIXAR STUDIOS';
+    else if (currentAiPrompt) label = 'MAGIC GEN';
+    else if (currentFilter !== 'none') label = 'OPTIC FX';
     
     const newPolaroid: PolaroidData = {
       id: Math.random().toString(36).substr(2, 9),
       url: imageUrl,
       date: formattedDate,
       label: label,
-      filterName: currentFilter === 'none' ? 'ANALOG' : 'LENS-FX'
+      filterName: currentFilter === 'none' ? 'NATURAL' : 'GLASS-FX'
     };
     
     setLastPolaroid(newPolaroid);
@@ -92,8 +95,6 @@ const App: React.FC = () => {
     if (status !== CameraStatus.IDLE) return;
     
     setStatus(CameraStatus.CAPTURING);
-    
-    // Mimic shutter delay
     await new Promise(r => setTimeout(r, 200));
     
     let imgData = await captureFrame();
@@ -102,7 +103,6 @@ const App: React.FC = () => {
       return;
     }
 
-    // Apply AI modification if prompt is present
     if (currentAiPrompt) {
       const aiImg = await modifyImageWithAI(imgData, currentAiPrompt);
       if (aiImg) imgData = aiImg;
@@ -144,42 +144,38 @@ const App: React.FC = () => {
     setLastPolaroid(null);
   };
 
+  const isMagicActive = currentAiPrompt !== '';
+
   return (
     <div ref={appContainerRef} className="bg-[#080808] font-display antialiased min-h-screen w-full overflow-y-auto overflow-x-hidden select-none text-white flex flex-col items-center pb-32">
       <div className="w-full h-[4vh]"></div>
 
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleFileChange} 
-        accept="image/*" 
-        className="hidden" 
-      />
+      <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
 
       {/* Branding */}
       <div className="w-full flex flex-col items-center justify-center mb-6 pointer-events-none gap-2">
         <img 
           src="https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-zk8KwTWVtOiCNfuY7MhvuW6j8Bgxwf.png" 
           alt="Brand Logo" 
-          className="h-14 w-auto object-contain animate-in fade-in zoom-in duration-700"
+          className="h-12 w-auto object-contain animate-in fade-in duration-1000"
         />
-        <span className="text-gray-600 font-display font-black text-[9px] tracking-[0.4em] uppercase opacity-60">
-          premium instant optics
-        </span>
+        <div className="flex items-center gap-3">
+           <div className="h-px w-8 bg-white/10"></div>
+           <span className="text-gray-600 font-display font-black text-[8px] tracking-[0.5em] uppercase">Digital Analog System</span>
+           <div className="h-px w-8 bg-white/10"></div>
+        </div>
       </div>
 
-      {/* Main Camera and Printing Container */}
       <div className="relative w-[92%] max-w-sm flex flex-col items-center">
-        
         {/* Camera Body */}
-        <div className="relative w-full aspect-[1/0.95] bg-[#fafafa] rounded-[2.8rem] shadow-camera-body border border-white/40 flex flex-col items-center z-20 plastic-texture overflow-visible">
+        <div className="relative w-full aspect-[1/0.95] bg-[#fafafa] rounded-[2.8rem] shadow-camera-body border border-white/40 flex flex-col items-center z-20 plastic-texture overflow-visible transition-all duration-500">
           <div className="absolute top-0 w-full h-1/4 bg-gradient-to-b from-white/80 to-transparent pointer-events-none rounded-t-[2.8rem]"></div>
           
-          <div className="absolute top-0 left-[15%] w-14 h-5 bg-[#d62828] rounded-b-xl shadow-inner z-30 flex items-center justify-center">
-             <div className="w-6 h-[1px] bg-white/20"></div>
+          <div className="absolute top-0 left-[15%] w-14 h-5 bg-[#d62828] rounded-b-xl shadow-inner z-30 flex items-center justify-center border-x border-b border-black/10">
+             <div className="w-5 h-[1.5px] bg-white/30 rounded-full"></div>
           </div>
           
-          <div className="absolute top-[28%] w-full flex justify-center z-10">
+          <div className="absolute top-[28%] w-full flex justify-center z-10 scale-75 opacity-80">
             <div className="h-4 w-2.5 bg-[#FFD400]"></div> 
             <div className="h-4 w-2.5 bg-[#F5821F]"></div> 
             <div className="h-4 w-2.5 bg-[#E4002B]"></div> 
@@ -190,15 +186,16 @@ const App: React.FC = () => {
           <div className="w-full flex justify-between items-start px-8 pt-10 mb-2 z-20">
             <div className="w-16 h-12 bg-[#1a1a1a] rounded-lg flex flex-col p-1 shadow-md border border-gray-300/50">
               <div className="flex-1 bg-gradient-to-br from-gray-200 to-gray-400 rounded-[3px] relative overflow-hidden">
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_50%,rgba(0,0,0,0.1)_50%)] bg-[length:4px_100%] opacity-30"></div>
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent"></div>
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_50%,rgba(0,0,0,0.05)_50%)] bg-[length:4px_100%]"></div>
               </div>
             </div>
             
             <div className="w-16 h-12 bg-[#1a1a1a] rounded-lg flex flex-col items-center justify-center shadow-md border border-gray-300/50 relative overflow-hidden">
               <div className="w-10 h-10 bg-[#050505] rounded shadow-inner flex items-center justify-center relative">
-                <div className={`absolute bottom-1 right-1 w-2 h-2 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.8)] ${currentFilter !== 'none' || currentAiPrompt ? 'bg-indigo-400 shadow-indigo-400' : 'bg-emerald-500 shadow-emerald-500'} animate-led-blink`}></div>
-                <span className="material-symbols-outlined text-white/10 text-xs">bolt</span>
+                <div className={`absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full shadow-[0_0_12px_rgba(0,0,0,1)] ${isMagicActive ? 'bg-indigo-500 shadow-indigo-500/50' : 'bg-emerald-500 shadow-emerald-500/50'} animate-led-blink transition-colors duration-500`}></div>
+                <span className={`material-symbols-outlined text-xs transition-colors duration-500 ${isMagicActive ? 'text-indigo-400 opacity-60' : 'text-white/10'}`}>
+                  {isMagicActive ? 'psychology' : 'bolt'}
+                </span>
               </div>
             </div>
           </div>
@@ -209,11 +206,11 @@ const App: React.FC = () => {
             currentFilter={currentFilter}
           />
 
-          <div className="w-full px-8 pb-10 flex flex-col items-center relative z-20 mt-auto">
-            <div className="w-full h-5 bg-[#111] rounded-full shadow-[inset_0_3px_6px_rgba(0,0,0,1),0_1px_0_rgba(255,255,255,0.8)] relative flex items-center justify-center overflow-hidden">
-              <div className="w-[96%] h-[2px] bg-[#333] shadow-inner"></div>
+          <div className="w-full px-10 pb-10 flex flex-col items-center relative z-20 mt-auto">
+            <div className="w-full h-6 bg-[#111] rounded-full shadow-[inset_0_4px_8px_rgba(0,0,0,1),0_1px_0_rgba(255,255,255,0.8)] relative flex items-center justify-center overflow-hidden">
+              <div className="w-[98%] h-[2px] bg-[#333] shadow-inner"></div>
             </div>
-            <div className="mt-2 text-[8px] font-bold text-gray-300 tracking-[0.2em] opacity-40 uppercase">Ejecting Film Slot</div>
+            <div className="mt-2 text-[7px] font-black text-gray-400 tracking-[0.4em] uppercase opacity-40">High Fidelity Ejector</div>
           </div>
         </div>
 
@@ -223,38 +220,38 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Controls Container - Ensure it is below the ejection area and always visible */}
-      <div className={`w-full max-w-sm px-6 mt-16 z-30 transition-all duration-500 ${status === CameraStatus.PRINTING ? 'translate-y-24 opacity-100' : 'translate-y-0'}`}>
+      {/* Controls Container */}
+      <div className={`w-full max-w-sm px-6 mt-16 z-30 transition-all duration-700 ${status === CameraStatus.PRINTING ? 'translate-y-32 opacity-100' : 'translate-y-0'}`}>
         <div className="flex items-center justify-between w-full px-4">
           
-          {/* Lens Filter / AI Button */}
+          {/* Magic Customizer Button */}
           <button 
             onClick={() => setIsCustomizing(true)}
-            className="flex flex-col items-center gap-2 group transition-all"
+            className="flex flex-col items-center gap-3 group transition-all"
           >
-            <div className={`w-12 h-12 rounded-full border flex items-center justify-center backdrop-blur-md group-active:scale-90 transition-all ${currentFilter !== 'none' || currentAiPrompt ? 'bg-indigo-500/30 border-indigo-500/50 shadow-[0_0_20px_rgba(99,102,241,0.4)]' : 'bg-white/5 border-white/10'}`}>
-              <span className={`material-symbols-outlined text-[20px] ${currentFilter !== 'none' || currentAiPrompt ? 'text-indigo-400' : 'text-white'}`}>
-                {currentAiPrompt ? 'psychology' : (currentFilter !== 'none' ? 'auto_fix_high' : 'filter_frames')}
+            <div className={`w-14 h-14 rounded-full border flex items-center justify-center backdrop-blur-xl group-active:scale-90 transition-all duration-500 ${isMagicActive ? 'bg-indigo-600/30 border-indigo-500/50 shadow-[0_0_30px_rgba(99,102,241,0.3)]' : 'bg-white/5 border-white/10'}`}>
+              <span className={`material-symbols-outlined text-[24px] transition-all duration-500 ${isMagicActive ? 'text-indigo-300 scale-110' : 'text-white/80'}`}>
+                {isMagicActive ? 'auto_awesome' : 'filter_frames'}
               </span>
             </div>
-            <span className={`text-[9px] font-black tracking-widest uppercase ${currentFilter !== 'none' || currentAiPrompt ? 'text-indigo-400' : 'text-white/40'}`}>
-              {currentAiPrompt ? 'AI MAGIC' : 'LENS'}
+            <span className={`text-[9px] font-black tracking-[0.2em] uppercase transition-colors duration-500 ${isMagicActive ? 'text-indigo-400' : 'text-white/30'}`}>
+              {isMagicActive ? 'Magic On' : 'Optics'}
             </span>
           </button>
 
-          {/* Main Shutter Button */}
+          {/* Shutter Button */}
           <button 
             onClick={status === CameraStatus.PRINTING ? resetCamera : handleCapture}
             className="relative group touch-manipulation"
           >
-            <div className="absolute inset-0 bg-pola-red/20 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition-all"></div>
-            <div className={`w-[84px] h-[84px] rounded-full flex items-center justify-center shadow-[0_8px_20px_rgba(0,0,0,0.5),inset_0_2px_4px_rgba(255,255,255,0.2)] border-[5px] group-active:scale-95 group-active:translate-y-1 transition-all ${status === CameraStatus.PRINTING ? 'bg-white border-gray-200 shadow-white/20' : 'bg-[#d62828] border-[#a01a1a]'}`}>
-              <div className={`w-[60px] h-[60px] rounded-full border border-white/5 ${status === CameraStatus.PRINTING ? 'bg-black/5 flex items-center justify-center' : 'bg-gradient-to-br from-white/10 to-transparent'}`}>
+            <div className={`absolute inset-0 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 ${isMagicActive ? 'bg-indigo-600/30' : 'bg-pola-red/20'}`}></div>
+            <div className={`w-[90px] h-[90px] rounded-full flex items-center justify-center shadow-[0_10px_25px_rgba(0,0,0,0.6),inset_0_2px_4px_rgba(255,255,255,0.2)] border-[6px] group-active:scale-95 transition-all duration-300 ${status === CameraStatus.PRINTING ? 'bg-white border-gray-200' : (isMagicActive ? 'bg-indigo-600 border-indigo-800' : 'bg-[#d62828] border-[#a01a1a]')}`}>
+              <div className={`w-[66px] h-[66px] rounded-full flex items-center justify-center ${status === CameraStatus.PRINTING ? 'bg-black/5' : 'bg-gradient-to-br from-white/10 to-transparent shadow-inner'}`}>
                 {status === CameraStatus.PRINTING ? (
-                  <span className="material-symbols-outlined text-black/60 text-[24px]">replay</span>
+                  <span className="material-symbols-outlined text-black/60 text-[28px]">refresh</span>
                 ) : (
                   status === CameraStatus.CAPTURING ? (
-                    <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
                   ) : (
                     <div className="w-full h-full rounded-full bg-gradient-to-br from-white/5 to-transparent"></div>
                   )
@@ -263,29 +260,19 @@ const App: React.FC = () => {
             </div>
           </button>
 
-          {/* Gallery Button (Film) */}
+          {/* Film Gallery Button */}
           <button 
             onClick={handleGalleryClick}
-            className="flex flex-col items-center gap-2 group transition-all"
+            className="flex flex-col items-center gap-3 group transition-all"
           >
-            <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center bg-white/5 backdrop-blur-md group-active:scale-90">
-              <span className="material-symbols-outlined text-white text-[20px]">add_photo_alternate</span>
+            <div className="w-14 h-14 rounded-full border border-white/10 flex items-center justify-center bg-white/5 backdrop-blur-xl group-active:scale-90">
+              <span className="material-symbols-outlined text-white/80 text-[24px]">add_photo_alternate</span>
             </div>
-            <span className="text-[9px] text-white/40 font-black tracking-widest uppercase">FILM</span>
+            <span className="text-[9px] text-white/30 font-black tracking-[0.2em] uppercase">Library</span>
           </button>
         </div>
       </div>
 
-      {/* Decoration */}
-      <div className={`flex items-center justify-center gap-2 w-full opacity-40 py-8 transition-all duration-500 ${status === CameraStatus.PRINTING ? 'translate-y-24' : ''}`}>
-        <div className="h-1.5 w-1.5 rounded-full bg-[#FFD400]"></div>
-        <div className="h-1.5 w-1.5 rounded-full bg-[#F5821F]"></div>
-        <div className="h-1.5 w-1.5 rounded-full bg-[#E4002B]"></div>
-        <div className="h-1.5 w-1.5 rounded-full bg-[#009D4E]"></div>
-        <div className="h-1.5 w-1.5 rounded-full bg-[#0058A8]"></div>
-      </div>
-
-      {/* Overlays */}
       {isCustomizing && (
         <Customizer 
           currentFilter={currentFilter}

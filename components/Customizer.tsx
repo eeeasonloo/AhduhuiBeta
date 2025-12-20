@@ -23,59 +23,118 @@ const Customizer: React.FC<CustomizerProps> = ({
     { name: 'None', value: 'none' },
     { name: 'Vintage', value: 'sepia(0.6) contrast(1.1) brightness(0.9)' },
     { name: 'B&W', value: 'grayscale(1) contrast(1.2)' },
-    { name: 'Vibrant', value: 'saturate(1.8) contrast(1.1)' },
-    { name: 'Dreamy', value: 'brightness(1.1) saturate(0.8) blur(0.5px)' },
-    { name: 'Cold', value: 'hue-rotate(180deg) saturate(0.5) brightness(1.1)' },
-    { name: 'Warm', value: 'sepia(0.3) saturate(1.4) contrast(0.9)' },
     { name: 'Noir', value: 'grayscale(1) contrast(2) brightness(0.7)' },
-    { name: 'Retro', value: 'sepia(0.4) hue-rotate(-30deg) contrast(1.2)' },
   ];
 
+  const characterStyles = [
+    { 
+      name: 'Anime', 
+      icon: 'auto_awesome',
+      prompt: 'Transform the person into a high-quality 2D anime character. Keep the pose and hair color.' 
+    },
+    { 
+      name: 'Zootopia', 
+      icon: 'pets',
+      prompt: 'Transform the person into a Zootopia-style anthropomorphic animal character. Maintain clothing style.' 
+    },
+    { 
+      name: 'Pixar', 
+      icon: 'animation',
+      prompt: 'Transform the person into a 3D Pixar-style movie character with expressive large eyes and stylized features.' 
+    },
+    { 
+      name: 'Cyberpunk', 
+      icon: 'bolt',
+      prompt: 'Transform the person into a futuristic cyberpunk character with neon highlights and tech-wear.' 
+    },
+    { 
+      name: 'Sketch', 
+      icon: 'edit',
+      prompt: 'Transform the entire image into a detailed charcoal and pencil hand-drawn sketch.' 
+    }
+  ];
+
+  const handleStyleClick = (prompt: string) => {
+    if (tempAiPrompt === prompt) {
+      setTempAiPrompt('');
+    } else {
+      setTempAiPrompt(prompt);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
       <div 
-        className="w-full max-w-md bg-[#1a1a1a] rounded-t-[2.5rem] p-8 pb-12 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] border-t border-white/10 animate-in slide-in-from-bottom duration-500 ease-out"
+        className="w-full max-w-md bg-[#121212] rounded-t-[2.5rem] p-8 pb-12 shadow-[0_-10px_50px_rgba(0,0,0,0.8)] border-t border-white/10 animate-in slide-in-from-bottom duration-500 ease-out"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-8">
           <div className="flex flex-col">
-            <h2 className="text-xl font-bold tracking-tight text-white">Lens Customizer</h2>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Analog & AI Enhanced</p>
+            <h2 className="text-xl font-black tracking-tight text-white uppercase italic">Lens Customizer</h2>
+            <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-[0.3em] mt-1">Multi-Pass Generation Active</p>
           </div>
           <button 
             onClick={onClose}
-            className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors"
+            className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center hover:bg-white/10 transition-colors border border-white/10"
           >
-            <span className="material-symbols-outlined text-white">close</span>
+            <span className="material-symbols-outlined text-white text-sm">close</span>
           </button>
         </div>
 
-        <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+        <div className="space-y-8 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+          
+          {/* Character Transformations */}
           <div>
-            <label className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold mb-4 block">
-              AI Magic Prompt (Optional)
+            <label className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-black mb-4 block">
+              Magic Character Styles
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {characterStyles.map((style) => (
+                <button
+                  key={style.name}
+                  onClick={() => handleStyleClick(style.prompt)}
+                  className={`flex items-center gap-3 p-4 rounded-2xl transition-all border ${
+                    tempAiPrompt === style.prompt 
+                    ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.2)]' 
+                    : 'bg-white/5 border-white/5 text-gray-400 hover:border-white/20'
+                  }`}
+                >
+                  <span className={`material-symbols-outlined text-lg ${tempAiPrompt === style.prompt ? 'text-indigo-400' : 'text-gray-600'}`}>
+                    {style.icon}
+                  </span>
+                  <span className="text-[11px] font-bold tracking-wider uppercase">{style.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Manual Input */}
+          <div>
+            <label className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-black mb-4 block">
+              Custom Prompt
             </label>
             <textarea 
               value={tempAiPrompt}
               onChange={(e) => setTempAiPrompt(e.target.value)}
-              placeholder="e.g. Add a cyberpunk glow, make it 1920s style..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none h-24 placeholder:text-gray-600"
+              placeholder="e.g. As a retro superhero..."
+              className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none h-20 placeholder:text-gray-700 font-medium"
             />
           </div>
 
+          {/* Analog Filters */}
           <div>
-            <label className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold mb-4 block">
-              Analog Presets
+            <label className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-black mb-4 block">
+              Lens Glass
             </label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-2">
               {filterPresets.map((p) => (
                 <button
                   key={p.name}
                   onClick={() => setTempFilter(p.value)}
-                  className={`py-3 px-2 rounded-xl text-[11px] font-bold tracking-tight transition-all border ${
+                  className={`py-3 rounded-xl text-[9px] font-black tracking-widest transition-all border uppercase ${
                     tempFilter === p.value 
-                    ? 'bg-pola-red border-pola-red text-white shadow-[0_0_15px_rgba(228,0,43,0.3)]' 
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20'
+                    ? 'bg-white border-white text-black' 
+                    : 'bg-white/5 border-white/10 text-gray-500'
                   }`}
                 >
                   {p.name}
@@ -84,16 +143,16 @@ const Customizer: React.FC<CustomizerProps> = ({
             </div>
           </div>
 
-          <div className="pt-2 sticky bottom-0 bg-[#1a1a1a] pb-2">
+          <div className="pt-4 sticky bottom-0 bg-[#121212] pb-2">
             <button
               onClick={() => {
                 onSetFilter(tempFilter);
                 onSetAiPrompt(tempAiPrompt);
                 onClose();
               }}
-              className="w-full bg-white text-black font-black text-xs tracking-[0.2em] py-5 rounded-2xl active:scale-95 transition-transform uppercase shadow-lg"
+              className="w-full bg-pola-red text-white font-black text-[11px] tracking-[0.3em] py-5 rounded-2xl active:scale-95 transition-transform uppercase shadow-xl border-t border-white/20"
             >
-              Apply to Next Shot
+              Configure Optics
             </button>
           </div>
         </div>

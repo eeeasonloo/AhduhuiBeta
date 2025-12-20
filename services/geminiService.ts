@@ -3,22 +3,19 @@ import { GoogleGenAI } from "@google/genai";
 
 export const modifyImageWithAI = async (base64Image: string, prompt: string): Promise<string | null> => {
   try {
-    // Robust check for API key
     let apiKey = "";
     try {
       // @ts-ignore
       apiKey = process.env.API_KEY || "";
     } catch (e) {
-      console.warn("Could not access process.env.API_KEY directly.");
+      console.warn("Could not access process.env.API_KEY.");
     }
 
-    if (!apiKey) {
-      console.warn("Gemini API key not found. Please ensure process.env.API_KEY is configured in your environment variables.");
-      return null;
-    }
+    if (!apiKey) return null;
 
     const ai = new GoogleGenAI({ apiKey });
     
+    // We use gemini-2.5-flash-image for high-speed creative transformations
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -30,7 +27,11 @@ export const modifyImageWithAI = async (base64Image: string, prompt: string): Pr
             },
           },
           {
-            text: `Please edit this image based on the following instruction: ${prompt}. Return only the edited image in response.`,
+            text: `You are a master character designer and digital artist. 
+            Instruction: ${prompt}. 
+            Keep the original pose, composition, and background. 
+            Transform the main subject only. 
+            Return the final edited image as raw image data.`,
           },
         ],
       },
@@ -45,7 +46,7 @@ export const modifyImageWithAI = async (base64Image: string, prompt: string): Pr
     }
     return null;
   } catch (error) {
-    console.error("Error editing image with Gemini:", error);
+    console.error("Error transforming image:", error);
     return null;
   }
 };
