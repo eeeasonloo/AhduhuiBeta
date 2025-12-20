@@ -1,10 +1,10 @@
 
 import React, { useState, useRef, useCallback } from 'react';
-import { CameraStatus, PolaroidData } from './types';
-import CameraLens from './components/CameraLens';
-import Polaroid from './components/Polaroid';
-import Customizer from './components/Customizer';
-import { modifyImageWithAI } from './services/geminiService';
+import { CameraStatus, PolaroidData } from './types.ts';
+import CameraLens from './components/CameraLens.tsx';
+import Polaroid from './components/Polaroid.tsx';
+import Customizer from './components/Customizer.tsx';
+import { modifyImageWithAI } from './services/geminiService.ts';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<CameraStatus>(CameraStatus.IDLE);
@@ -64,10 +64,15 @@ const App: React.FC = () => {
     }
 
     if (aiPrompt) {
-      const editedImage = await modifyImageWithAI(rawImage, aiPrompt);
-      if (editedImage) {
-        triggerPrint(editedImage);
-      } else {
+      try {
+        const editedImage = await modifyImageWithAI(rawImage, aiPrompt);
+        if (editedImage) {
+          triggerPrint(editedImage);
+        } else {
+          triggerPrint(rawImage);
+        }
+      } catch (err) {
+        console.error("AI Modification failed", err);
         triggerPrint(rawImage);
       }
     } else {

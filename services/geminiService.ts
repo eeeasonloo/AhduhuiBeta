@@ -1,17 +1,20 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-const API_KEY = process.env.API_KEY || "";
-
 export const modifyImageWithAI = async (base64Image: string, prompt: string): Promise<string | null> => {
-  if (!API_KEY) {
-    console.error("API Key not found");
-    return null;
-  }
-
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
-  
   try {
+    // Obtain the API key from process.env.API_KEY safely within the function execution context.
+    // If process is undefined in a pure browser context, this allows the UI to catch the error
+    // rather than crashing at module load.
+    const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : "";
+    
+    if (!apiKey) {
+      console.warn("Gemini API key not found in environment.");
+      return null;
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+    
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
