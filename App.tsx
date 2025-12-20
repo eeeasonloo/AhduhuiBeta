@@ -43,8 +43,6 @@ const App: React.FC = () => {
         canvas.height = 1000;
         
         ctx.clearRect(0, 0, 1000, 1000);
-        
-        // Only apply CSS filters for the 'Lens Glass' effect, AI handles character modes
         ctx.filter = currentFilter;
         
         const x = (w - size) / 2;
@@ -95,10 +93,7 @@ const App: React.FC = () => {
 
   const handleCapture = async () => {
     if (status !== CameraStatus.IDLE) return;
-    
     setStatus(CameraStatus.CAPTURING);
-    
-    // Shutter effect delay
     await new Promise(r => setTimeout(r, 200));
     
     let imgData = await captureFrame();
@@ -108,15 +103,9 @@ const App: React.FC = () => {
       return;
     }
 
-    // Apply AI Transformation if prompt exists
     if (currentAiPrompt) {
-      console.log("Applying Magic Transformation with prompt:", currentAiPrompt);
       const aiImg = await modifyImageWithAI(imgData, currentAiPrompt);
-      if (aiImg) {
-        imgData = aiImg;
-      } else {
-        console.warn("AI Transformation failed, falling back to original capture.");
-      }
+      if (aiImg) imgData = aiImg;
     }
 
     triggerPrint(imgData);
@@ -134,9 +123,7 @@ const App: React.FC = () => {
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
       setStatus(CameraStatus.CAPTURING);
-      
       let processedImg = await captureFrame(base64);
-      
       if (processedImg) {
         if (currentAiPrompt) {
           const aiImg = await modifyImageWithAI(processedImg, currentAiPrompt);
@@ -178,32 +165,54 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Camera Body and Printing Stage */}
+      {/* Main Camera Stage */}
       <div className="relative w-[92%] max-w-sm flex flex-col items-center flex-shrink-0">
+        
+        {/* Physical Shutter Button on Camera Top */}
+        <button 
+          onClick={status === CameraStatus.PRINTING ? resetCamera : handleCapture}
+          className="absolute -top-4 right-10 z-[40] w-14 h-8 bg-black rounded-t-xl border-x border-t border-white/20 shadow-lg group transition-all active:translate-y-1 active:shadow-inner"
+        >
+          <div className={`absolute top-1 left-1 right-1 bottom-0 rounded-t-lg transition-colors ${status === CameraStatus.PRINTING ? 'bg-white' : (isMagicActive ? 'bg-indigo-600' : 'bg-pola-red')}`}></div>
+          <div className="absolute inset-x-2 top-1 h-[1px] bg-white/20 rounded-full"></div>
+        </button>
+
+        {/* Camera Body */}
         <div className="relative w-full aspect-[1/0.95] bg-[#fafafa] rounded-[2.8rem] shadow-camera-body border border-white/40 flex flex-col items-center z-20 plastic-texture overflow-visible">
-          <div className="absolute top-0 w-full h-1/4 bg-gradient-to-b from-white/80 to-transparent pointer-events-none rounded-t-[2.8rem]"></div>
           
-          {/* Shutter Accent */}
+          {/* Vertical Rainbow Design */}
+          <div className="absolute top-0 bottom-[40%] left-1/2 -translate-x-1/2 w-10 rainbow-stripe opacity-90 z-10"></div>
+          
+          {/* Top Shutter Accent Base */}
           <div className="absolute top-0 left-[15%] w-14 h-5 bg-[#d62828] rounded-b-xl shadow-inner z-30 flex items-center justify-center border-x border-b border-black/10">
              <div className="w-5 h-[1.5px] bg-white/30 rounded-full"></div>
           </div>
           
-          {/* Leica-style Color Stripe */}
-          <div className="absolute top-[28%] w-full flex justify-center z-10 scale-75 opacity-80">
-            <div className="h-4 w-2.5 bg-[#FFD400]"></div> 
-            <div className="h-4 w-2.5 bg-[#F5821F]"></div> 
-            <div className="h-4 w-2.5 bg-[#E4002B]"></div> 
-            <div className="h-4 w-2.5 bg-[#009D4E]"></div> 
-            <div className="h-4 w-2.5 bg-[#0058A8]"></div> 
+          {/* Integrated Body Buttons (Optics & Library) */}
+          <div className="absolute top-24 left-6 z-30 flex flex-col gap-4">
+             <button 
+               onClick={() => setIsCustomizing(true)}
+               className={`w-10 h-10 rounded-full border shadow-md flex items-center justify-center transition-all active:scale-90 ${isMagicActive ? 'bg-indigo-600 border-indigo-400' : 'bg-[#1a1a1a] border-white/10'}`}
+             >
+               <span className="material-symbols-outlined text-white text-[18px]">auto_awesome</span>
+             </button>
+             <button 
+               onClick={handleGalleryClick}
+               className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-white/10 shadow-md flex items-center justify-center transition-all active:scale-90"
+             >
+               <span className="material-symbols-outlined text-white text-[18px]">photo_library</span>
+             </button>
           </div>
 
           <div className="w-full flex justify-between items-start px-8 pt-10 mb-2 z-20">
+            {/* Viewfinder Area */}
             <div className="w-16 h-12 bg-[#1a1a1a] rounded-lg flex flex-col p-1 shadow-md border border-gray-300/50">
               <div className="flex-1 bg-gradient-to-br from-gray-200 to-gray-400 rounded-[3px] relative overflow-hidden">
                 <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_50%,rgba(0,0,0,0.05)_50%)] bg-[length:4px_100%]"></div>
               </div>
             </div>
             
+            {/* Flash / Status Area */}
             <div className="w-16 h-12 bg-[#1a1a1a] rounded-lg flex flex-col items-center justify-center shadow-md border border-gray-300/50 relative overflow-hidden">
               <div className="w-10 h-10 bg-[#050505] rounded shadow-inner flex items-center justify-center relative">
                 <div className={`absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full shadow-[0_0_12px_rgba(0,0,0,1)] ${isMagicActive ? 'bg-indigo-500 shadow-indigo-500/50' : 'bg-emerald-500 shadow-emerald-500/50'} animate-led-blink transition-colors duration-500`}></div>
@@ -228,35 +237,18 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Printed Polaroid - Height is managed by its own animation */}
+        {/* Printed Polaroid */}
         {lastPolaroid && (
           <Polaroid data={lastPolaroid} isPrinting={status === CameraStatus.PRINTING} />
         )}
       </div>
 
-      {/* Spacer that grows when photo is printed to push controls down */}
-      <div className={`transition-all duration-1000 ease-in-out ${status === CameraStatus.PRINTING ? 'h-[420px]' : 'h-0'}`}></div>
+      {/* Spacer that grows when photo is printed */}
+      <div className={`transition-all duration-1000 ease-in-out ${status === CameraStatus.PRINTING ? 'h-[460px]' : 'h-0'}`}></div>
 
-      {/* Controls Container - Stays below camera or printed photo */}
-      <div className="w-full max-w-sm px-6 my-12 z-30 pb-10">
-        <div className="flex items-center justify-between w-full px-4">
-          
-          {/* Customizer */}
-          <button 
-            onClick={() => setIsCustomizing(true)}
-            className="flex flex-col items-center gap-3 group transition-all"
-          >
-            <div className={`w-14 h-14 rounded-full border flex items-center justify-center backdrop-blur-xl group-active:scale-90 transition-all duration-500 ${isMagicActive ? 'bg-indigo-600/30 border-indigo-500/50 shadow-[0_0_30px_rgba(99,102,241,0.3)]' : 'bg-white/5 border-white/10'}`}>
-              <span className={`material-symbols-outlined text-[24px] transition-all duration-500 ${isMagicActive ? 'text-indigo-300 scale-110' : 'text-white/80'}`}>
-                {isMagicActive ? 'auto_awesome' : 'filter_frames'}
-              </span>
-            </div>
-            <span className={`text-[9px] font-black tracking-[0.2em] uppercase transition-colors duration-500 ${isMagicActive ? 'text-indigo-400' : 'text-white/30'}`}>
-              {isMagicActive ? 'Magic On' : 'Optics'}
-            </span>
-          </button>
-
-          {/* Main Action Button */}
+      {/* Controls Container - Secondary UI below camera */}
+      <div className="w-full max-w-sm px-6 my-12 z-30 pb-12 flex justify-center">
+          {/* Main Large Shutter Button */}
           <button 
             onClick={status === CameraStatus.PRINTING ? resetCamera : handleCapture}
             className="relative group touch-manipulation"
@@ -276,18 +268,6 @@ const App: React.FC = () => {
               </div>
             </div>
           </button>
-
-          {/* Gallery */}
-          <button 
-            onClick={handleGalleryClick}
-            className="flex flex-col items-center gap-3 group transition-all"
-          >
-            <div className="w-14 h-14 rounded-full border border-white/10 flex items-center justify-center bg-white/5 backdrop-blur-xl group-active:scale-90">
-              <span className="material-symbols-outlined text-white/80 text-[24px]">add_photo_alternate</span>
-            </div>
-            <span className="text-[9px] text-white/30 font-black tracking-[0.2em] uppercase">Library</span>
-          </button>
-        </div>
       </div>
 
       {isCustomizing && (

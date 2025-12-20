@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html class="dark" lang="zh-CN">
 <head>
@@ -69,19 +70,19 @@
         }
         @keyframes ejectPhoto {
             0% { 
-                transform: translateY(-90%) scale(0.98); 
+                transform: translateY(-80%) scale(0.95); 
                 opacity: 0; 
             }
-            15% {
+            10% {
                 opacity: 1;
             }
             100% { 
-                transform: translateY(15%) rotate(-1deg) scale(1); 
+                transform: translateY(22%) rotate(-1.5deg) scale(1); 
                 opacity: 1;
             }
         }
         .animate-print {
-            animation: ejectPhoto 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            animation: ejectPhoto 2.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
         }
         @keyframes ledBlink {
             0%, 100% { opacity: 1; transform: scale(1); filter: brightness(1.2) blur(1px); }
@@ -89,6 +90,9 @@
         }
         .animate-led-blink {
             animation: ledBlink 1.5s infinite ease-in-out;
+        }
+        .rainbow-stripe {
+            background: linear-gradient(to right, #FFD400 20%, #F5821F 20% 40%, #E4002B 40% 60%, #009D4E 60% 80%, #0058A8 80%);
         }
     </style>
 <script type="importmap">
