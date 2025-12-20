@@ -1,5 +1,5 @@
 {
-  "name": "Ahduhui-Beta",
+  "name": "AhduhuiBeta",
   "description": "A premium Leica-styled instant camera that captures and 'prints' digital polaroids with AI-powered customization options.",
   "requestFramePermissions": [
     "camera"
