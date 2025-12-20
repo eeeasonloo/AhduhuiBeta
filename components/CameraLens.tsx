@@ -1,8 +1,7 @@
-
 import React, { useEffect } from 'react';
 
 interface CameraLensProps {
-  videoRef: React.RefObject<HTMLVideoElement>;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
   isCapturing: boolean;
 }
 

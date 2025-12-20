@@ -10,7 +10,7 @@ const App: React.FC = () => {
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [currentFilter, setCurrentFilter] = useState('none');
   
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const appContainerRef = useRef<HTMLDivElement>(null);
