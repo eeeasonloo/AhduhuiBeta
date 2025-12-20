@@ -1,4 +1,5 @@
 
+// Added React to the import list to resolve namespace errors for React.FC and React.ChangeEvent
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { CameraStatus, PolaroidData } from './types';
 import CameraLens from './components/CameraLens';
@@ -18,7 +19,7 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const appContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll logic when printing
+  // Auto-scroll logic when printing to show the ejected photo
   useEffect(() => {
     if (status === CameraStatus.PRINTING && appContainerRef.current) {
       const timer = setTimeout(() => {
@@ -26,7 +27,7 @@ const App: React.FC = () => {
           top: document.body.scrollHeight,
           behavior: 'smooth'
         });
-      }, 800);
+      }, 500);
       return () => clearTimeout(timer);
     }
   }, [status]);
@@ -43,6 +44,8 @@ const App: React.FC = () => {
         canvas.height = 1000;
         
         ctx.clearRect(0, 0, 1000, 1000);
+        
+        // Apply analog glass filter before capturing
         ctx.filter = currentFilter;
         
         const x = (w - size) / 2;
@@ -57,9 +60,11 @@ const App: React.FC = () => {
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.onload = () => finalizeCanvas(img, img.width, img.height);
+        img.onerror = () => resolve(null);
         img.src = externalSrc;
       } else if (videoRef.current) {
         const video = videoRef.current;
+        if (video.videoWidth === 0) return resolve(null);
         finalizeCanvas(video, video.videoWidth, video.videoHeight);
       } else {
         resolve(null);
@@ -93,8 +98,11 @@ const App: React.FC = () => {
 
   const handleCapture = async () => {
     if (status !== CameraStatus.IDLE) return;
+    
     setStatus(CameraStatus.CAPTURING);
-    await new Promise(r => setTimeout(r, 200));
+    
+    // Small delay for shutter feel
+    await new Promise(r => setTimeout(r, 150));
     
     let imgData = await captureFrame();
     if (!imgData) {
@@ -103,9 +111,18 @@ const App: React.FC = () => {
       return;
     }
 
+    // Apply AI Transformation if prompt exists
     if (currentAiPrompt) {
-      const aiImg = await modifyImageWithAI(imgData, currentAiPrompt);
-      if (aiImg) imgData = aiImg;
+      try {
+        const aiImg = await modifyImageWithAI(imgData, currentAiPrompt);
+        if (aiImg) {
+          imgData = aiImg;
+        } else {
+          console.warn("AI transformation returned null, falling back to original capture.");
+        }
+      } catch (err) {
+        console.error("AI processing error:", err);
+      }
     }
 
     triggerPrint(imgData);
@@ -123,6 +140,7 @@ const App: React.FC = () => {
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
       setStatus(CameraStatus.CAPTURING);
+      
       let processedImg = await captureFrame(base64);
       if (processedImg) {
         if (currentAiPrompt) {
@@ -215,7 +233,7 @@ const App: React.FC = () => {
             {/* Flash / Status Area */}
             <div className="w-16 h-12 bg-[#1a1a1a] rounded-lg flex flex-col items-center justify-center shadow-md border border-gray-300/50 relative overflow-hidden">
               <div className="w-10 h-10 bg-[#050505] rounded shadow-inner flex items-center justify-center relative">
-                <div className={`absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full shadow-[0_0_12px_rgba(0,0,0,1)] ${isMagicActive ? 'bg-indigo-500 shadow-indigo-500/50' : 'bg-emerald-500 shadow-emerald-500/50'} animate-led-blink transition-colors duration-500`}></div>
+                <div className={`absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full shadow-[0_0_12px_rgba(0,0,0,1)] ${isMagicActive ? 'bg-indigo-500 shadow-indigo-500/50' : (status === CameraStatus.CAPTURING ? 'bg-amber-500 shadow-amber-500/50 animate-pulse' : 'bg-emerald-500 shadow-emerald-500/50')} animate-led-blink transition-colors duration-500`}></div>
                 <span className={`material-symbols-outlined text-xs transition-colors duration-500 ${isMagicActive ? 'text-indigo-400 opacity-60' : 'text-white/10'}`}>
                   {isMagicActive ? 'psychology' : 'bolt'}
                 </span>
@@ -250,8 +268,9 @@ const App: React.FC = () => {
       <div className="w-full max-w-sm px-6 my-12 z-30 pb-12 flex justify-center">
           {/* Main Large Shutter Button */}
           <button 
+            disabled={status === CameraStatus.CAPTURING}
             onClick={status === CameraStatus.PRINTING ? resetCamera : handleCapture}
-            className="relative group touch-manipulation"
+            className={`relative group touch-manipulation transition-opacity ${status === CameraStatus.CAPTURING ? 'opacity-50 cursor-not-allowed' : 'opacity-100'}`}
           >
             <div className={`absolute inset-0 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 ${isMagicActive ? 'bg-indigo-600/30' : 'bg-pola-red/20'}`}></div>
             <div className={`w-[90px] h-[90px] rounded-full flex items-center justify-center shadow-[0_10px_25px_rgba(0,0,0,0.6),inset_0_2px_4px_rgba(255,255,255,0.2)] border-[6px] group-active:scale-95 transition-all duration-300 ${status === CameraStatus.PRINTING ? 'bg-white border-gray-200' : (isMagicActive ? 'bg-indigo-600 border-indigo-800' : 'bg-[#d62828] border-[#a01a1a]')}`}>
