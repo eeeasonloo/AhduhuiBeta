@@ -1,5 +1,3 @@
-
-// Added React to the import list to resolve namespace errors for React.FC and React.ChangeEvent
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { CameraStatus, PolaroidData } from './types';
 import CameraLens from './components/CameraLens';
@@ -13,6 +11,7 @@ const App: React.FC = () => {
   const [isCustomizing, setIsCustomizing] = useState(false);
   const [currentFilter, setCurrentFilter] = useState('none');
   const [currentAiPrompt, setCurrentAiPrompt] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
@@ -32,6 +31,14 @@ const App: React.FC = () => {
     }
   }, [status]);
 
+  // Clear error message after 5 seconds
+  useEffect(() => {
+    if (errorMsg) {
+      const timer = setTimeout(() => setErrorMsg(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMsg]);
+
   const captureFrame = useCallback(async (externalSrc?: string): Promise<string | null> => {
     return new Promise((resolve) => {
       const canvas = canvasRef.current;
@@ -44,8 +51,6 @@ const App: React.FC = () => {
         canvas.height = 1000;
         
         ctx.clearRect(0, 0, 1000, 1000);
-        
-        // Apply analog glass filter before capturing
         ctx.filter = currentFilter;
         
         const x = (w - size) / 2;
@@ -100,28 +105,27 @@ const App: React.FC = () => {
     if (status !== CameraStatus.IDLE) return;
     
     setStatus(CameraStatus.CAPTURING);
+    setErrorMsg(null);
     
-    // Small delay for shutter feel
     await new Promise(r => setTimeout(r, 150));
     
     let imgData = await captureFrame();
     if (!imgData) {
-      setStatus(CameraStatus.ERROR);
-      setTimeout(() => setStatus(CameraStatus.IDLE), 2000);
+      setErrorMsg("Unable to access camera frame. Check permissions.");
+      setStatus(CameraStatus.IDLE);
       return;
     }
 
-    // Apply AI Transformation if prompt exists
     if (currentAiPrompt) {
       try {
         const aiImg = await modifyImageWithAI(imgData, currentAiPrompt);
         if (aiImg) {
           imgData = aiImg;
         } else {
-          console.warn("AI transformation returned null, falling back to original capture.");
+          setErrorMsg("AI transformation failed. This could be due to safety filters or free-tier rate limits. Falling back to original photo.");
         }
-      } catch (err) {
-        console.error("AI processing error:", err);
+      } catch (err: any) {
+        setErrorMsg(`AI processing error: ${err.message || 'Unknown error'}`);
       }
     }
 
@@ -140,12 +144,21 @@ const App: React.FC = () => {
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
       setStatus(CameraStatus.CAPTURING);
+      setErrorMsg(null);
       
       let processedImg = await captureFrame(base64);
       if (processedImg) {
         if (currentAiPrompt) {
-          const aiImg = await modifyImageWithAI(processedImg, currentAiPrompt);
-          if (aiImg) processedImg = aiImg;
+          try {
+            const aiImg = await modifyImageWithAI(processedImg, currentAiPrompt);
+            if (aiImg) {
+              processedImg = aiImg;
+            } else {
+              setErrorMsg("AI transformation failed. This could be due to safety filters or rate limits. Falling back to original photo.");
+            }
+          } catch (err: any) {
+            setErrorMsg(`AI processing error: ${err.message || 'Unknown error'}`);
+          }
         }
         triggerPrint(processedImg, true);
       } else {
@@ -159,12 +172,30 @@ const App: React.FC = () => {
   const resetCamera = () => {
     setStatus(CameraStatus.IDLE);
     setLastPolaroid(null);
+    setErrorMsg(null);
   };
 
   const isMagicActive = currentAiPrompt !== '';
 
   return (
     <div ref={appContainerRef} className="bg-[#080808] font-display antialiased min-h-screen w-full overflow-y-auto overflow-x-hidden select-none text-white flex flex-col items-center">
+      
+      {/* Error Message Toast */}
+      {errorMsg && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm">
+          <div className="bg-[#1a1a1a] border border-red-500/30 rounded-2xl p-4 shadow-2xl backdrop-blur-md flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
+            <span className="material-symbols-outlined text-red-500 text-xl flex-shrink-0">error</span>
+            <div className="flex-1">
+              <p className="text-[10px] font-black tracking-widest text-red-500 uppercase mb-1">Warning</p>
+              <p className="text-[11px] font-medium text-gray-300 leading-tight">{errorMsg}</p>
+            </div>
+            <button onClick={() => setErrorMsg(null)} className="text-gray-500 hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-sm">close</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="w-full h-[4vh]"></div>
 
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
@@ -186,12 +217,20 @@ const App: React.FC = () => {
       {/* Main Camera Stage */}
       <div className="relative w-[92%] max-w-sm flex flex-col items-center flex-shrink-0">
         
-        {/* Physical Shutter Button on Camera Top */}
+        {/* Physical Shutter Button on Camera Top - Right Side */}
         <button 
+          disabled={status === CameraStatus.CAPTURING}
           onClick={status === CameraStatus.PRINTING ? resetCamera : handleCapture}
           className="absolute -top-4 right-10 z-[40] w-14 h-8 bg-black rounded-t-xl border-x border-t border-white/20 shadow-lg group transition-all active:translate-y-1 active:shadow-inner"
         >
-          <div className={`absolute top-1 left-1 right-1 bottom-0 rounded-t-lg transition-colors ${status === CameraStatus.PRINTING ? 'bg-white' : (isMagicActive ? 'bg-indigo-600' : 'bg-pola-red')}`}></div>
+          <div className={`absolute top-1 left-1 right-1 bottom-0 rounded-t-lg transition-colors flex items-center justify-center ${status === CameraStatus.PRINTING ? 'bg-white' : (isMagicActive ? 'bg-indigo-600' : 'bg-pola-red')}`}>
+            {status === CameraStatus.CAPTURING && (
+              <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+            )}
+            {status === CameraStatus.PRINTING && (
+              <span className="material-symbols-outlined text-black text-xs">refresh</span>
+            )}
+          </div>
           <div className="absolute inset-x-2 top-1 h-[1px] bg-white/20 rounded-full"></div>
         </button>
 
@@ -206,17 +245,19 @@ const App: React.FC = () => {
              <div className="w-5 h-[1.5px] bg-white/30 rounded-full"></div>
           </div>
           
-          {/* Integrated Body Buttons (Optics & Library) */}
-          <div className="absolute top-24 left-6 z-30 flex flex-col gap-4">
+          {/* Side Buttons (Optics & Library) - Centered Left Middle */}
+          <div className="absolute top-1/2 -translate-y-1/2 left-6 z-30 flex flex-col gap-4">
              <button 
                onClick={() => setIsCustomizing(true)}
                className={`w-10 h-10 rounded-full border shadow-md flex items-center justify-center transition-all active:scale-90 ${isMagicActive ? 'bg-indigo-600 border-indigo-400' : 'bg-[#1a1a1a] border-white/10'}`}
+               title="Customizer"
              >
                <span className="material-symbols-outlined text-white text-[18px]">auto_awesome</span>
              </button>
              <button 
                onClick={handleGalleryClick}
                className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-white/10 shadow-md flex items-center justify-center transition-all active:scale-90"
+               title="Gallery"
              >
                <span className="material-symbols-outlined text-white text-[18px]">photo_library</span>
              </button>
@@ -262,32 +303,7 @@ const App: React.FC = () => {
       </div>
 
       {/* Spacer that grows when photo is printed */}
-      <div className={`transition-all duration-1000 ease-in-out ${status === CameraStatus.PRINTING ? 'h-[460px]' : 'h-0'}`}></div>
-
-      {/* Controls Container - Secondary UI below camera */}
-      <div className="w-full max-w-sm px-6 my-12 z-30 pb-12 flex justify-center">
-          {/* Main Large Shutter Button */}
-          <button 
-            disabled={status === CameraStatus.CAPTURING}
-            onClick={status === CameraStatus.PRINTING ? resetCamera : handleCapture}
-            className={`relative group touch-manipulation transition-opacity ${status === CameraStatus.CAPTURING ? 'opacity-50 cursor-not-allowed' : 'opacity-100'}`}
-          >
-            <div className={`absolute inset-0 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-500 ${isMagicActive ? 'bg-indigo-600/30' : 'bg-pola-red/20'}`}></div>
-            <div className={`w-[90px] h-[90px] rounded-full flex items-center justify-center shadow-[0_10px_25px_rgba(0,0,0,0.6),inset_0_2px_4px_rgba(255,255,255,0.2)] border-[6px] group-active:scale-95 transition-all duration-300 ${status === CameraStatus.PRINTING ? 'bg-white border-gray-200' : (isMagicActive ? 'bg-indigo-600 border-indigo-800' : 'bg-[#d62828] border-[#a01a1a]')}`}>
-              <div className={`w-[66px] h-[66px] rounded-full flex items-center justify-center ${status === CameraStatus.PRINTING ? 'bg-black/5' : 'bg-gradient-to-br from-white/10 to-transparent shadow-inner'}`}>
-                {status === CameraStatus.PRINTING ? (
-                  <span className="material-symbols-outlined text-black/60 text-[28px]">refresh</span>
-                ) : (
-                  status === CameraStatus.CAPTURING ? (
-                    <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                  ) : (
-                    <div className="w-full h-full rounded-full bg-gradient-to-br from-white/5 to-transparent"></div>
-                  )
-                )}
-              </div>
-            </div>
-          </button>
-      </div>
+      <div className={`transition-all duration-1000 ease-in-out ${status === CameraStatus.PRINTING ? 'h-[460px]' : 'h-12'}`}></div>
 
       {isCustomizing && (
         <Customizer 
