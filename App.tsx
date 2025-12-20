@@ -18,15 +18,16 @@ const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const appContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to printed photo
+  // Auto-scroll logic when printing
   useEffect(() => {
     if (status === CameraStatus.PRINTING && appContainerRef.current) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         window.scrollTo({
           top: document.body.scrollHeight,
           behavior: 'smooth'
         });
-      }, 500);
+      }, 800);
+      return () => clearTimeout(timer);
     }
   }, [status]);
 
@@ -42,6 +43,8 @@ const App: React.FC = () => {
         canvas.height = 1000;
         
         ctx.clearRect(0, 0, 1000, 1000);
+        
+        // Only apply CSS filters for the 'Lens Glass' effect, AI handles character modes
         ctx.filter = currentFilter;
         
         const x = (w - size) / 2;
@@ -70,12 +73,11 @@ const App: React.FC = () => {
     const now = new Date();
     const formattedDate = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`;
     
-    // Determine the style label based on the active transformation
     let label = 'INSTANT FILM';
     if (isGallery) label = 'GALLERY ARCHIVE';
-    else if (currentAiPrompt.includes('Anime')) label = 'ANIME VARIANT';
-    else if (currentAiPrompt.includes('Zootopia')) label = 'ZOOTOPIA CHARACTER';
-    else if (currentAiPrompt.includes('Pixar')) label = 'PIXAR STUDIOS';
+    else if (currentAiPrompt.toLowerCase().includes('anime')) label = 'ANIME VARIANT';
+    else if (currentAiPrompt.toLowerCase().includes('zootopia')) label = 'ZOOTOPIA CHAR';
+    else if (currentAiPrompt.toLowerCase().includes('pixar')) label = 'PIXAR STUDIOS';
     else if (currentAiPrompt) label = 'MAGIC GEN';
     else if (currentFilter !== 'none') label = 'OPTIC FX';
     
@@ -95,17 +97,26 @@ const App: React.FC = () => {
     if (status !== CameraStatus.IDLE) return;
     
     setStatus(CameraStatus.CAPTURING);
+    
+    // Shutter effect delay
     await new Promise(r => setTimeout(r, 200));
     
     let imgData = await captureFrame();
     if (!imgData) {
       setStatus(CameraStatus.ERROR);
+      setTimeout(() => setStatus(CameraStatus.IDLE), 2000);
       return;
     }
 
+    // Apply AI Transformation if prompt exists
     if (currentAiPrompt) {
+      console.log("Applying Magic Transformation with prompt:", currentAiPrompt);
       const aiImg = await modifyImageWithAI(imgData, currentAiPrompt);
-      if (aiImg) imgData = aiImg;
+      if (aiImg) {
+        imgData = aiImg;
+      } else {
+        console.warn("AI Transformation failed, falling back to original capture.");
+      }
     }
 
     triggerPrint(imgData);
@@ -123,14 +134,15 @@ const App: React.FC = () => {
     reader.onload = async (event) => {
       const base64 = event.target?.result as string;
       setStatus(CameraStatus.CAPTURING);
-      let filteredImg = await captureFrame(base64);
       
-      if (filteredImg) {
+      let processedImg = await captureFrame(base64);
+      
+      if (processedImg) {
         if (currentAiPrompt) {
-          const aiImg = await modifyImageWithAI(filteredImg, currentAiPrompt);
-          if (aiImg) filteredImg = aiImg;
+          const aiImg = await modifyImageWithAI(processedImg, currentAiPrompt);
+          if (aiImg) processedImg = aiImg;
         }
-        triggerPrint(filteredImg, true);
+        triggerPrint(processedImg, true);
       } else {
         setStatus(CameraStatus.IDLE);
       }
@@ -147,7 +159,7 @@ const App: React.FC = () => {
   const isMagicActive = currentAiPrompt !== '';
 
   return (
-    <div ref={appContainerRef} className="bg-[#080808] font-display antialiased min-h-screen w-full overflow-y-auto overflow-x-hidden select-none text-white flex flex-col items-center pb-32">
+    <div ref={appContainerRef} className="bg-[#080808] font-display antialiased min-h-screen w-full overflow-y-auto overflow-x-hidden select-none text-white flex flex-col items-center">
       <div className="w-full h-[4vh]"></div>
 
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
@@ -161,20 +173,22 @@ const App: React.FC = () => {
         />
         <div className="flex items-center gap-3">
            <div className="h-px w-8 bg-white/10"></div>
-           <span className="text-gray-600 font-display font-black text-[8px] tracking-[0.5em] uppercase">Digital Analog System</span>
+           <span className="text-gray-600 font-display font-black text-[8px] tracking-[0.5em] uppercase">Nano-Banana Imaging</span>
            <div className="h-px w-8 bg-white/10"></div>
         </div>
       </div>
 
-      <div className="relative w-[92%] max-w-sm flex flex-col items-center">
-        {/* Camera Body */}
-        <div className="relative w-full aspect-[1/0.95] bg-[#fafafa] rounded-[2.8rem] shadow-camera-body border border-white/40 flex flex-col items-center z-20 plastic-texture overflow-visible transition-all duration-500">
+      {/* Camera Body and Printing Stage */}
+      <div className="relative w-[92%] max-w-sm flex flex-col items-center flex-shrink-0">
+        <div className="relative w-full aspect-[1/0.95] bg-[#fafafa] rounded-[2.8rem] shadow-camera-body border border-white/40 flex flex-col items-center z-20 plastic-texture overflow-visible">
           <div className="absolute top-0 w-full h-1/4 bg-gradient-to-b from-white/80 to-transparent pointer-events-none rounded-t-[2.8rem]"></div>
           
+          {/* Shutter Accent */}
           <div className="absolute top-0 left-[15%] w-14 h-5 bg-[#d62828] rounded-b-xl shadow-inner z-30 flex items-center justify-center border-x border-b border-black/10">
              <div className="w-5 h-[1.5px] bg-white/30 rounded-full"></div>
           </div>
           
+          {/* Leica-style Color Stripe */}
           <div className="absolute top-[28%] w-full flex justify-center z-10 scale-75 opacity-80">
             <div className="h-4 w-2.5 bg-[#FFD400]"></div> 
             <div className="h-4 w-2.5 bg-[#F5821F]"></div> 
@@ -210,21 +224,24 @@ const App: React.FC = () => {
             <div className="w-full h-6 bg-[#111] rounded-full shadow-[inset_0_4px_8px_rgba(0,0,0,1),0_1px_0_rgba(255,255,255,0.8)] relative flex items-center justify-center overflow-hidden">
               <div className="w-[98%] h-[2px] bg-[#333] shadow-inner"></div>
             </div>
-            <div className="mt-2 text-[7px] font-black text-gray-400 tracking-[0.4em] uppercase opacity-40">High Fidelity Ejector</div>
+            <div className="mt-2 text-[7px] font-black text-gray-400 tracking-[0.4em] uppercase opacity-40">Film Slot Output</div>
           </div>
         </div>
 
-        {/* Printed Polaroid */}
+        {/* Printed Polaroid - Height is managed by its own animation */}
         {lastPolaroid && (
           <Polaroid data={lastPolaroid} isPrinting={status === CameraStatus.PRINTING} />
         )}
       </div>
 
-      {/* Controls Container */}
-      <div className={`w-full max-w-sm px-6 mt-16 z-30 transition-all duration-700 ${status === CameraStatus.PRINTING ? 'translate-y-32 opacity-100' : 'translate-y-0'}`}>
+      {/* Spacer that grows when photo is printed to push controls down */}
+      <div className={`transition-all duration-1000 ease-in-out ${status === CameraStatus.PRINTING ? 'h-[420px]' : 'h-0'}`}></div>
+
+      {/* Controls Container - Stays below camera or printed photo */}
+      <div className="w-full max-w-sm px-6 my-12 z-30 pb-10">
         <div className="flex items-center justify-between w-full px-4">
           
-          {/* Magic Customizer Button */}
+          {/* Customizer */}
           <button 
             onClick={() => setIsCustomizing(true)}
             className="flex flex-col items-center gap-3 group transition-all"
@@ -239,7 +256,7 @@ const App: React.FC = () => {
             </span>
           </button>
 
-          {/* Shutter Button */}
+          {/* Main Action Button */}
           <button 
             onClick={status === CameraStatus.PRINTING ? resetCamera : handleCapture}
             className="relative group touch-manipulation"
@@ -260,7 +277,7 @@ const App: React.FC = () => {
             </div>
           </button>
 
-          {/* Film Gallery Button */}
+          {/* Gallery */}
           <button 
             onClick={handleGalleryClick}
             className="flex flex-col items-center gap-3 group transition-all"
