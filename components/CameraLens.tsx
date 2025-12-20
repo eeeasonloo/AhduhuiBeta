@@ -1,17 +1,19 @@
+
 import React, { useEffect } from 'react';
 
 interface CameraLensProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   isCapturing: boolean;
+  currentFilter: string;
 }
 
-const CameraLens: React.FC<CameraLensProps> = ({ videoRef, isCapturing }) => {
+const CameraLens: React.FC<CameraLensProps> = ({ videoRef, isCapturing, currentFilter }) => {
   useEffect(() => {
     let currentStream: MediaStream | null = null;
 
     const startCamera = async () => {
       const constraints = [
-        { video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } } },
+        { video: { facingMode: 'user', width: { ideal: 1000 }, height: { ideal: 1000 } } },
         { video: { facingMode: 'user' } },
         { video: true }
       ];
@@ -55,7 +57,8 @@ const CameraLens: React.FC<CameraLensProps> = ({ videoRef, isCapturing }) => {
             autoPlay 
             muted 
             playsInline
-            className="absolute inset-0 w-full h-full object-cover rounded-full grayscale-[10%] contrast-[1.1] scale-110 bg-black"
+            style={{ filter: currentFilter }}
+            className="absolute inset-0 w-full h-full object-cover rounded-full grayscale-[10%] contrast-[1.1] scale-110 bg-black transition-all duration-300"
           />
 
           <div className="w-14 h-14 rounded-full bg-black/40 shadow-[inset_0_0_20px_rgba(255,255,255,0.1)] relative flex items-center justify-center border border-white/5 z-20 pointer-events-none">

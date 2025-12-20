@@ -1,13 +1,23 @@
+
 import React, { useState } from 'react';
 
 interface CustomizerProps {
   onClose: () => void;
   onSetFilter: (filter: string) => void;
+  onSetAiPrompt: (prompt: string) => void;
   currentFilter: string;
+  currentAiPrompt: string;
 }
 
-const Customizer: React.FC<CustomizerProps> = ({ onClose, onSetFilter, currentFilter }) => {
+const Customizer: React.FC<CustomizerProps> = ({ 
+  onClose, 
+  onSetFilter, 
+  onSetAiPrompt,
+  currentFilter, 
+  currentAiPrompt 
+}) => {
   const [tempFilter, setTempFilter] = useState(currentFilter);
+  const [tempAiPrompt, setTempAiPrompt] = useState(currentAiPrompt);
 
   const filterPresets = [
     { name: 'None', value: 'none' },
@@ -29,8 +39,8 @@ const Customizer: React.FC<CustomizerProps> = ({ onClose, onSetFilter, currentFi
       >
         <div className="flex justify-between items-center mb-6">
           <div className="flex flex-col">
-            <h2 className="text-xl font-bold tracking-tight text-white">Lens Filters</h2>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Local Analog Emulation</p>
+            <h2 className="text-xl font-bold tracking-tight text-white">Lens Customizer</h2>
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-1">Analog & AI Enhanced</p>
           </div>
           <button 
             onClick={onClose}
@@ -40,7 +50,19 @@ const Customizer: React.FC<CustomizerProps> = ({ onClose, onSetFilter, currentFi
           </button>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+          <div>
+            <label className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold mb-4 block">
+              AI Magic Prompt (Optional)
+            </label>
+            <textarea 
+              value={tempAiPrompt}
+              onChange={(e) => setTempAiPrompt(e.target.value)}
+              placeholder="e.g. Add a cyberpunk glow, make it 1920s style..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none h-24 placeholder:text-gray-600"
+            />
+          </div>
+
           <div>
             <label className="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold mb-4 block">
               Analog Presets
@@ -62,13 +84,14 @@ const Customizer: React.FC<CustomizerProps> = ({ onClose, onSetFilter, currentFi
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 sticky bottom-0 bg-[#1a1a1a] pb-2">
             <button
               onClick={() => {
                 onSetFilter(tempFilter);
+                onSetAiPrompt(tempAiPrompt);
                 onClose();
               }}
-              className="w-full bg-white text-black font-black text-xs tracking-[0.2em] py-5 rounded-2xl active:scale-95 transition-transform uppercase"
+              className="w-full bg-white text-black font-black text-xs tracking-[0.2em] py-5 rounded-2xl active:scale-95 transition-transform uppercase shadow-lg"
             >
               Apply to Next Shot
             </button>
