@@ -3,13 +3,17 @@ import { GoogleGenAI } from "@google/genai";
 
 export const modifyImageWithAI = async (base64Image: string, prompt: string): Promise<string | null> => {
   try {
-    // Obtain the API key from process.env.API_KEY safely within the function execution context.
-    // If process is undefined in a pure browser context, this allows the UI to catch the error
-    // rather than crashing at module load.
-    const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : "";
-    
+    // Robust check for API key
+    let apiKey = "";
+    try {
+      // @ts-ignore
+      apiKey = process.env.API_KEY || "";
+    } catch (e) {
+      console.warn("Could not access process.env.API_KEY directly.");
+    }
+
     if (!apiKey) {
-      console.warn("Gemini API key not found in environment.");
+      console.warn("Gemini API key not found. Please ensure process.env.API_KEY is configured in your environment variables.");
       return null;
     }
 
@@ -26,13 +30,15 @@ export const modifyImageWithAI = async (base64Image: string, prompt: string): Pr
             },
           },
           {
-            text: `Please edit this image based on the following instruction: ${prompt}. Return only the edited image.`,
+            text: `Please edit this image based on the following instruction: ${prompt}. Return only the edited image in response.`,
           },
         ],
       },
     });
 
-    for (const part of response.candidates?.[0]?.content?.parts || []) {
+    if (!response.candidates?.[0]?.content?.parts) return null;
+
+    for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
       }
