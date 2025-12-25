@@ -1,13 +1,11 @@
-
 import React, { useEffect } from 'react';
 
 interface CameraLensProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   isCapturing: boolean;
-  currentFilter: string;
 }
 
-const CameraLens: React.FC<CameraLensProps> = ({ videoRef, isCapturing, currentFilter }) => {
+const CameraLens: React.FC<CameraLensProps> = ({ videoRef, isCapturing }) => {
   useEffect(() => {
     let currentStream: MediaStream | null = null;
 
@@ -57,13 +55,12 @@ const CameraLens: React.FC<CameraLensProps> = ({ videoRef, isCapturing, currentF
             autoPlay 
             muted 
             playsInline
-            style={{ filter: currentFilter }}
-            className="absolute inset-0 w-full h-full object-cover rounded-full grayscale-[10%] contrast-[1.1] scale-110 bg-black transition-all duration-300"
+            className="absolute inset-0 w-full h-full object-cover rounded-full grayscale-[5%] contrast-[1.05] scale-110 bg-black"
           />
 
           <div className="w-14 h-14 rounded-full bg-black/40 shadow-[inset_0_0_20px_rgba(255,255,255,0.1)] relative flex items-center justify-center border border-white/5 z-20 pointer-events-none">
             <div className="absolute top-3 right-4 w-5 h-3 bg-white/10 rounded-full blur-[3px] -rotate-45"></div>
-            <div className="absolute bottom-3 left-4 w-3 h-3 bg-indigo-500/10 rounded-full blur-[4px]"></div>
+            <div className="absolute bottom-3 left-4 w-3 h-3 bg-white/5 rounded-full blur-[4px]"></div>
           </div>
         </div>
       </div>

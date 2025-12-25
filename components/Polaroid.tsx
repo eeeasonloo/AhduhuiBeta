@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { PolaroidData } from '../types';
 
@@ -18,31 +17,6 @@ const Polaroid: React.FC<PolaroidProps> = ({ data, isPrinting }) => {
     }
   }, [isPrinting, data.id]);
 
-  const handleShare = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      if (navigator.share) {
-        const response = await fetch(data.url);
-        const blob = await response.blob();
-        const file = new File([blob], `polaroid-${data.id}.png`, { type: 'image/png' });
-        
-        await navigator.share({
-          title: 'My Ahduhui Polaroid',
-          text: `Captured on ${data.date} with ${data.label}`,
-          files: [file],
-        });
-      } else {
-        // Fallback to download
-        const link = document.createElement('a');
-        link.href = data.url;
-        link.download = `polaroid-${data.id}.png`;
-        link.click();
-      }
-    } catch (err) {
-      console.error('Share failed:', err);
-    }
-  };
-
   return (
     <div 
       className={`absolute top-[72%] w-[88%] max-w-[310px] z-10 flex flex-col items-center pointer-events-none ${isPrinting ? 'animate-print' : 'hidden'}`}
@@ -61,14 +35,6 @@ const Polaroid: React.FC<PolaroidProps> = ({ data, isPrinting }) => {
           
           {/* Developing Stage Overlay */}
           <div className={`absolute inset-0 bg-[#1a1a1a] transition-opacity duration-[3500ms] ${developed ? 'opacity-0' : 'opacity-50'}`}></div>
-
-          {/* Share/Save Button */}
-          <button 
-            onClick={handleShare}
-            className={`absolute bottom-3 right-3 w-11 h-11 rounded-full bg-white/95 shadow-xl flex items-center justify-center transition-all duration-700 hover:scale-110 active:scale-90 ${developed ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6 pointer-events-none'}`}
-          >
-            <span className="material-symbols-outlined text-black text-2xl">ios_share</span>
-          </button>
         </div>
         
         {/* Date Label */}
