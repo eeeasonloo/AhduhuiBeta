@@ -3,7 +3,6 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { CameraStatus, PolaroidData } from './types';
 import CameraLens from './components/CameraLens';
 import Polaroid from './components/Polaroid';
-import Customizer from './components/Customizer';
 import { modifyImageWithAI } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -11,7 +10,6 @@ const App: React.FC = () => {
   const [lastPolaroid, setLastPolaroid] = useState<PolaroidData | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
-  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
   const [currentFilter, setCurrentFilter] = useState('none');
   const [currentAiPrompt, setCurrentAiPrompt] = useState('');
   const [showFlash, setShowFlash] = useState(false);
@@ -133,33 +131,27 @@ const App: React.FC = () => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return reject('No context');
 
-      // Polaroid Dimensions (approx 3.5 x 4.2 ratio)
       const width = 1080;
       const height = 1350;
       canvas.width = width;
       canvas.height = height;
 
-      // 1. Draw Background (White frame)
       ctx.fillStyle = '#fdfdfd';
       ctx.fillRect(0, 0, width, height);
 
-      // 2. Draw Image
       const img = new Image();
       img.onload = () => {
         const padding = 60;
         const imgSize = width - (padding * 2);
         
-        // Apply filter for the exported version too
         ctx.save();
         ctx.filter = `${data.filterName !== 'none' ? data.filterName : ''} sepia(0.2) contrast(1.1) saturate(1.1) brightness(1.02)`;
         
-        // Image background
         ctx.fillStyle = '#f0f0f0';
         ctx.fillRect(padding - 2, padding - 2, imgSize + 4, imgSize + 4);
         ctx.drawImage(img, padding, padding, imgSize, imgSize);
         ctx.restore();
 
-        // 3. Draw Text
         ctx.fillStyle = '#9ca3af'; 
         ctx.font = 'italic black 24px "Noto Sans", monospace';
         ctx.textAlign = 'center';
@@ -240,12 +232,10 @@ const App: React.FC = () => {
   return (
     <div ref={appContainerRef} className="bg-[#080808] font-display antialiased min-h-screen w-full overflow-y-auto overflow-x-hidden select-none text-white flex flex-col items-center pb-32">
       
-      {/* Flash Effect Overlay */}
       {showFlash && (
         <div className="fixed inset-0 bg-white z-[300] pointer-events-none animate-out fade-out duration-300"></div>
       )}
 
-      {/* Error Message */}
       {errorMsg && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm">
           <div className="bg-[#1a1a1a] border border-red-500/30 rounded-2xl p-4 shadow-2xl backdrop-blur-md flex items-start gap-3 animate-in fade-in slide-in-from-top-4 duration-300">
@@ -259,7 +249,6 @@ const App: React.FC = () => {
 
       <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
 
-      {/* Branding */}
       <div className="w-full flex flex-col items-center justify-center mb-8 pointer-events-none gap-2">
         <img 
           src="https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-zk8KwTWVtOiCNfuY7MhvuW6j8Bgxwf.png" 
@@ -273,11 +262,8 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Camera Body Stage */}
       <div className="relative w-[92%] max-w-sm flex flex-col items-center flex-shrink-0">
-        
         <div className="relative w-full aspect-[1/0.95] bg-[#fafafa] rounded-[2.8rem] shadow-camera-body border border-white/40 flex flex-col items-center z-20 plastic-texture overflow-visible">
-          
           <div className="absolute top-0 bottom-[40%] left-1/2 -translate-x-1/2 w-10 rainbow-stripe opacity-90 z-10"></div>
           
           <div className="w-full flex justify-between items-start px-8 pt-10 mb-2 z-20">
@@ -313,7 +299,6 @@ const App: React.FC = () => {
         )}
       </div>
 
-      {/* Control Bar */}
       <div className="fixed bottom-0 inset-x-0 z-[150] h-32 flex items-center justify-center px-8 bg-gradient-to-t from-black via-black/90 to-transparent">
         <div className="w-full max-w-sm flex items-center justify-between">
           
@@ -324,13 +309,6 @@ const App: React.FC = () => {
               title="Import from Gallery"
             >
               <span className="material-symbols-outlined text-white text-2xl">photo_library</span>
-            </button>
-            <button 
-              onClick={() => setIsCustomizerOpen(true)}
-              className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all active:scale-90 ${currentAiPrompt || currentFilter !== 'none' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-400' : 'bg-white/5 border-white/10 text-white'}`}
-              title="Customize Lens"
-            >
-              <span className="material-symbols-outlined text-2xl">tune</span>
             </button>
           </div>
 
@@ -368,16 +346,6 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {isCustomizerOpen && (
-        <Customizer 
-          onClose={() => setIsCustomizerOpen(false)}
-          onSetFilter={setCurrentFilter}
-          onSetAiPrompt={setCurrentAiPrompt}
-          currentFilter={currentFilter}
-          currentAiPrompt={currentAiPrompt}
-        />
-      )}
 
       <div className={`transition-all duration-1000 ease-in-out ${status === CameraStatus.PRINTING ? 'h-[460px]' : 'h-12'}`}></div>
 
