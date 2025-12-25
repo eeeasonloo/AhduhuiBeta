@@ -1,13 +1,20 @@
+
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { CameraStatus, PolaroidData } from './types';
 import CameraLens from './components/CameraLens';
 import Polaroid from './components/Polaroid';
+import Customizer from './components/Customizer';
+import { modifyImageWithAI } from './services/geminiService';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<CameraStatus>(CameraStatus.IDLE);
   const [lastPolaroid, setLastPolaroid] = useState<PolaroidData | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [isCustomizerOpen, setIsCustomizerOpen] = useState(false);
+  const [currentFilter, setCurrentFilter] = useState('none');
+  const [currentAiPrompt, setCurrentAiPrompt] = useState('');
+  const [showFlash, setShowFlash] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
@@ -43,14 +50,14 @@ const App: React.FC = () => {
 
       const finalizeCanvas = (img: HTMLImageElement | HTMLVideoElement, w: number, h: number) => {
         const size = Math.min(w, h);
-        canvas.width = 1000; 
-        canvas.height = 1000;
+        canvas.width = 1024; 
+        canvas.height = 1024;
         
-        ctx.clearRect(0, 0, 1000, 1000);
+        ctx.clearRect(0, 0, 1024, 1024);
         
         const x = (w - size) / 2;
         const y = (h - size) / 2;
-        ctx.drawImage(img, x, y, size, size, 0, 0, 1000, 1000);
+        ctx.drawImage(img, x, y, size, size, 0, 0, 1024, 1024);
         
         resolve(canvas.toDataURL('image/png'));
       };
@@ -79,8 +86,8 @@ const App: React.FC = () => {
       id: Math.random().toString(36).substr(2, 9),
       url: imageUrl,
       date: formattedDate,
-      label: isGallery ? 'GALLERY ARCHIVE' : 'INSTANT FILM',
-      filterName: 'NATURAL'
+      label: isGallery ? 'GALLERY ARCHIVE' : (currentAiPrompt ? 'AI ENHANCED' : 'INSTANT FILM'),
+      filterName: currentFilter
     };
     
     setLastPolaroid(newPolaroid);
@@ -92,14 +99,25 @@ const App: React.FC = () => {
     
     setStatus(CameraStatus.CAPTURING);
     setErrorMsg(null);
+    setShowFlash(true);
+    setTimeout(() => setShowFlash(false), 150);
     
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 300));
     
-    const imgData = await captureFrame();
+    let imgData = await captureFrame();
     if (!imgData) {
       setErrorMsg("Unable to access camera frame.");
       setStatus(CameraStatus.IDLE);
       return;
+    }
+
+    if (currentAiPrompt) {
+      const aiModified = await modifyImageWithAI(imgData, currentAiPrompt);
+      if (aiModified) {
+        imgData = aiModified;
+      } else {
+        setErrorMsg("AI transformation failed, printing original.");
+      }
     }
 
     triggerPrint(imgData);
@@ -131,17 +149,20 @@ const App: React.FC = () => {
         const padding = 60;
         const imgSize = width - (padding * 2);
         
-        // Image background/shadow-ish border
+        // Apply filter for the exported version too
+        ctx.save();
+        ctx.filter = `${data.filterName !== 'none' ? data.filterName : ''} sepia(0.2) contrast(1.1) saturate(1.1) brightness(1.02)`;
+        
+        // Image background
         ctx.fillStyle = '#f0f0f0';
         ctx.fillRect(padding - 2, padding - 2, imgSize + 4, imgSize + 4);
-
         ctx.drawImage(img, padding, padding, imgSize, imgSize);
+        ctx.restore();
 
         // 3. Draw Text
-        ctx.fillStyle = '#9ca3af'; // Gray-400
+        ctx.fillStyle = '#9ca3af'; 
         ctx.font = 'italic black 24px "Noto Sans", monospace';
         ctx.textAlign = 'center';
-        ctx.letterSpacing = '4px';
         const labelText = `${data.date} • ${data.label}`;
         ctx.fillText(labelText.toUpperCase(), width / 2, height - 80);
 
@@ -170,7 +191,6 @@ const App: React.FC = () => {
           files: [file],
         });
       } else {
-        // Fallback to direct download
         const url = URL.createObjectURL(framedBlob);
         const link = document.createElement('a');
         link.href = url;
@@ -197,8 +217,12 @@ const App: React.FC = () => {
       const base64 = event.target?.result as string;
       setStatus(CameraStatus.CAPTURING);
       
-      const processedImg = await captureFrame(base64);
+      let processedImg = await captureFrame(base64);
       if (processedImg) {
+        if (currentAiPrompt) {
+          const aiModified = await modifyImageWithAI(processedImg, currentAiPrompt);
+          if (aiModified) processedImg = aiModified;
+        }
         triggerPrint(processedImg, true);
       } else {
         setStatus(CameraStatus.IDLE);
@@ -216,6 +240,11 @@ const App: React.FC = () => {
   return (
     <div ref={appContainerRef} className="bg-[#080808] font-display antialiased min-h-screen w-full overflow-y-auto overflow-x-hidden select-none text-white flex flex-col items-center pb-32">
       
+      {/* Flash Effect Overlay */}
+      {showFlash && (
+        <div className="fixed inset-0 bg-white z-[300] pointer-events-none animate-out fade-out duration-300"></div>
+      )}
+
       {/* Error Message */}
       {errorMsg && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] w-[90%] max-w-sm">
@@ -280,7 +309,7 @@ const App: React.FC = () => {
         </div>
 
         {lastPolaroid && (
-          <Polaroid data={lastPolaroid} isPrinting={status === CameraStatus.PRINTING} />
+          <Polaroid data={lastPolaroid} isPrinting={status === CameraStatus.PRINTING} filter={lastPolaroid.filterName} />
         )}
       </div>
 
@@ -288,13 +317,22 @@ const App: React.FC = () => {
       <div className="fixed bottom-0 inset-x-0 z-[150] h-32 flex items-center justify-center px-8 bg-gradient-to-t from-black via-black/90 to-transparent">
         <div className="w-full max-w-sm flex items-center justify-between">
           
-          <button 
-            onClick={handleGalleryClick}
-            className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center transition-all active:scale-90"
-            title="Import from Gallery"
-          >
-            <span className="material-symbols-outlined text-white text-2xl">photo_library</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleGalleryClick}
+              className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center transition-all active:scale-90"
+              title="Import from Gallery"
+            >
+              <span className="material-symbols-outlined text-white text-2xl">photo_library</span>
+            </button>
+            <button 
+              onClick={() => setIsCustomizerOpen(true)}
+              className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all active:scale-90 ${currentAiPrompt || currentFilter !== 'none' ? 'bg-indigo-600/20 border-indigo-500 text-indigo-400' : 'bg-white/5 border-white/10 text-white'}`}
+              title="Customize Lens"
+            >
+              <span className="material-symbols-outlined text-2xl">tune</span>
+            </button>
+          </div>
 
           <button 
             disabled={status === CameraStatus.CAPTURING}
@@ -330,6 +368,16 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {isCustomizerOpen && (
+        <Customizer 
+          onClose={() => setIsCustomizerOpen(false)}
+          onSetFilter={setCurrentFilter}
+          onSetAiPrompt={setCurrentAiPrompt}
+          currentFilter={currentFilter}
+          currentAiPrompt={currentAiPrompt}
+        />
+      )}
 
       <div className={`transition-all duration-1000 ease-in-out ${status === CameraStatus.PRINTING ? 'h-[460px]' : 'h-12'}`}></div>
 
