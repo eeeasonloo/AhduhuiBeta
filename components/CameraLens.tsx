@@ -1,31 +1,47 @@
+
 import React, { useEffect } from 'react';
 
 interface CameraLensProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
   isCapturing: boolean;
+  facingMode: 'user' | 'environment';
 }
 
-const CameraLens: React.FC<CameraLensProps> = ({ videoRef, isCapturing }) => {
+const CameraLens: React.FC<CameraLensProps> = ({ videoRef, isCapturing, facingMode }) => {
   useEffect(() => {
     let currentStream: MediaStream | null = null;
 
     const startCamera = async () => {
-      const constraints = [
-        { video: { facingMode: 'user', width: { ideal: 1000 }, height: { ideal: 1000 } } },
-        { video: { facingMode: 'user' } },
-        { video: true }
-      ];
+      // Stop previous stream if exists
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
 
-      for (const constraint of constraints) {
+      const constraints = {
+        video: { 
+          facingMode: facingMode, 
+          width: { ideal: 1024 }, 
+          height: { ideal: 1024 } 
+        }
+      };
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        currentStream = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.warn(`Camera access failed for ${facingMode}:`, err);
+        // Fallback to any camera if specific facingMode fails
         try {
-          const stream = await navigator.mediaDevices.getUserMedia(constraint);
-          currentStream = stream;
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          currentStream = fallbackStream;
           if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            return;
+            videoRef.current.srcObject = fallbackStream;
           }
-        } catch (err) {
-          console.warn(`Constraint failed:`, constraint, err);
+        } catch (e) {
+          console.error("Critical camera failure:", e);
         }
       }
     };
@@ -36,11 +52,8 @@ const CameraLens: React.FC<CameraLensProps> = ({ videoRef, isCapturing }) => {
       if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());
       }
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
     };
-  }, [videoRef]);
+  }, [videoRef, facingMode]);
 
   return (
     <div className="w-full flex items-center justify-center flex-1 pb-2 relative z-10 -mt-6">

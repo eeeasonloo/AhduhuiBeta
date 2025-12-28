@@ -3,28 +3,16 @@ import React, { useState } from 'react';
 
 interface CustomizerProps {
   onClose: () => void;
-  onSetFilter: (filter: string) => void;
   onSetAiPrompt: (prompt: string) => void;
-  currentFilter: string;
   currentAiPrompt: string;
 }
 
 const Customizer: React.FC<CustomizerProps> = ({ 
   onClose, 
-  onSetFilter, 
   onSetAiPrompt,
-  currentFilter, 
   currentAiPrompt 
 }) => {
-  const [tempFilter, setTempFilter] = useState(currentFilter);
   const [tempAiPrompt, setTempAiPrompt] = useState(currentAiPrompt);
-
-  const filterPresets = [
-    { name: 'None', value: 'none' },
-    { name: 'Vintage', value: 'sepia(0.6) contrast(1.1) brightness(0.9)' },
-    { name: 'B&W', value: 'grayscale(1) contrast(1.2)' },
-    { name: 'Noir', value: 'grayscale(1) contrast(2) brightness(0.7)' },
-  ];
 
   const characterStyles = [
     { 
@@ -121,32 +109,9 @@ const Customizer: React.FC<CustomizerProps> = ({
             />
           </div>
 
-          {/* Analog Filters */}
-          <div>
-            <label className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-black mb-4 block">
-              Lens Glass
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {filterPresets.map((p) => (
-                <button
-                  key={p.name}
-                  onClick={() => setTempFilter(p.value)}
-                  className={`py-3 rounded-xl text-[9px] font-black tracking-widest transition-all border uppercase ${
-                    tempFilter === p.value 
-                    ? 'bg-white border-white text-black' 
-                    : 'bg-white/5 border-white/10 text-gray-500'
-                  }`}
-                >
-                  {p.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="pt-4 sticky bottom-0 bg-[#121212] pb-2">
             <button
               onClick={() => {
-                onSetFilter(tempFilter);
                 onSetAiPrompt(tempAiPrompt);
                 onClose();
               }}

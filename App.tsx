@@ -3,23 +3,21 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { CameraStatus, PolaroidData } from './types';
 import CameraLens from './components/CameraLens';
 import Polaroid from './components/Polaroid';
-import { modifyImageWithAI } from './services/geminiService';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<CameraStatus>(CameraStatus.IDLE);
   const [lastPolaroid, setLastPolaroid] = useState<PolaroidData | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
-  const [currentFilter, setCurrentFilter] = useState('none');
-  const [currentAiPrompt, setCurrentAiPrompt] = useState('');
   const [showFlash, setShowFlash] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [caption, setCaption] = useState('');
   
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const appContainerRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll logic when printing to show the ejected photo
   useEffect(() => {
     if (status === CameraStatus.PRINTING && appContainerRef.current) {
       const timer = setTimeout(() => {
@@ -32,7 +30,6 @@ const App: React.FC = () => {
     }
   }, [status]);
 
-  // Clear error message after 5 seconds
   useEffect(() => {
     if (errorMsg) {
       const timer = setTimeout(() => setErrorMsg(null), 5000);
@@ -84,11 +81,11 @@ const App: React.FC = () => {
       id: Math.random().toString(36).substr(2, 9),
       url: imageUrl,
       date: formattedDate,
-      label: isGallery ? 'GALLERY ARCHIVE' : (currentAiPrompt ? 'AI ENHANCED' : 'INSTANT FILM'),
-      filterName: currentFilter
+      label: isGallery ? 'GALLERY ARCHIVE' : 'INSTANT FILM'
     };
     
     setLastPolaroid(newPolaroid);
+    setCaption('');
     setStatus(CameraStatus.PRINTING);
   };
 
@@ -102,27 +99,18 @@ const App: React.FC = () => {
     
     await new Promise(r => setTimeout(r, 300));
     
-    let imgData = await captureFrame();
+    const imgData = await captureFrame();
     if (!imgData) {
       setErrorMsg("Unable to access camera frame.");
       setStatus(CameraStatus.IDLE);
       return;
     }
 
-    if (currentAiPrompt) {
-      const aiModified = await modifyImageWithAI(imgData, currentAiPrompt);
-      if (aiModified) {
-        imgData = aiModified;
-      } else {
-        setErrorMsg("AI transformation failed, printing original.");
-      }
-    }
-
     triggerPrint(imgData);
   };
 
-  const handleGalleryClick = () => {
-    fileInputRef.current?.click();
+  const handleToggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   const generatePolaroidWithFrame = async (data: PolaroidData): Promise<Blob> => {
@@ -145,18 +133,25 @@ const App: React.FC = () => {
         const imgSize = width - (padding * 2);
         
         ctx.save();
-        ctx.filter = `${data.filterName !== 'none' ? data.filterName : ''} sepia(0.2) contrast(1.1) saturate(1.1) brightness(1.02)`;
+        ctx.filter = `sepia(0.2) contrast(1.1) saturate(1.1) brightness(1.02)`;
         
         ctx.fillStyle = '#f0f0f0';
         ctx.fillRect(padding - 2, padding - 2, imgSize + 4, imgSize + 4);
         ctx.drawImage(img, padding, padding, imgSize, imgSize);
         ctx.restore();
 
+        if (caption.trim()) {
+           ctx.fillStyle = '#1a1a1a';
+           ctx.font = '64px "Caveat", "Ma Shan Zheng", cursive';
+           ctx.textAlign = 'center';
+           ctx.fillText(caption, width / 2, height - 120);
+        }
+
         ctx.fillStyle = '#9ca3af'; 
-        ctx.font = 'italic black 24px "Noto Sans", monospace';
+        ctx.font = 'bold 18px "Noto Sans", monospace';
         ctx.textAlign = 'center';
         const labelText = `${data.date} • ${data.label}`;
-        ctx.fillText(labelText.toUpperCase(), width / 2, height - 80);
+        ctx.fillText(labelText.toUpperCase(), width / 2, height - 60);
 
         canvas.toBlob((blob) => {
           if (blob) resolve(blob);
@@ -179,7 +174,7 @@ const App: React.FC = () => {
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: "Ahduhui's Polaroid",
-          text: `Captured on ${lastPolaroid.date}`,
+          text: caption || `Captured on ${lastPolaroid.date}`,
           files: [file],
         });
       } else {
@@ -192,12 +187,20 @@ const App: React.FC = () => {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       }
-    } catch (err) {
-      console.error('Share failed:', err);
-      setErrorMsg("Failed to generate or share the framed photo.");
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('Share was cancelled by the user');
+      } else {
+        console.error('Share failed:', err);
+        setErrorMsg("Failed to generate or share the framed photo.");
+      }
     } finally {
       setIsSharing(false);
     }
+  };
+
+  const handleGalleryClick = () => {
+    fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -209,12 +212,8 @@ const App: React.FC = () => {
       const base64 = event.target?.result as string;
       setStatus(CameraStatus.CAPTURING);
       
-      let processedImg = await captureFrame(base64);
+      const processedImg = await captureFrame(base64);
       if (processedImg) {
-        if (currentAiPrompt) {
-          const aiModified = await modifyImageWithAI(processedImg, currentAiPrompt);
-          if (aiModified) processedImg = aiModified;
-        }
         triggerPrint(processedImg, true);
       } else {
         setStatus(CameraStatus.IDLE);
@@ -227,6 +226,7 @@ const App: React.FC = () => {
   const resetCamera = () => {
     setStatus(CameraStatus.IDLE);
     setLastPolaroid(null);
+    setCaption('');
   };
 
   return (
@@ -284,7 +284,15 @@ const App: React.FC = () => {
           <CameraLens 
             videoRef={videoRef} 
             isCapturing={status === CameraStatus.CAPTURING} 
+            facingMode={facingMode}
           />
+
+          <button 
+            onClick={handleToggleCamera}
+            className="absolute bottom-[35%] right-8 w-10 h-10 bg-[#222] rounded-full flex items-center justify-center z-30 shadow-lg border border-white/10 active:scale-90 transition-transform"
+          >
+            <span className="material-symbols-outlined text-white text-lg">flip_camera_ios</span>
+          </button>
 
           <div className="w-full px-10 pb-10 flex flex-col items-center relative z-20 mt-auto">
             <div className="w-full h-6 bg-[#111] rounded-full shadow-[inset_0_4px_8px_rgba(0,0,0,1),0_1px_0_rgba(255,255,255,0.8)] relative flex items-center justify-center overflow-hidden">
@@ -295,7 +303,12 @@ const App: React.FC = () => {
         </div>
 
         {lastPolaroid && (
-          <Polaroid data={lastPolaroid} isPrinting={status === CameraStatus.PRINTING} filter={lastPolaroid.filterName} />
+          <Polaroid 
+            data={lastPolaroid} 
+            isPrinting={status === CameraStatus.PRINTING} 
+            caption={caption}
+            onCaptionChange={setCaption}
+          />
         )}
       </div>
 
@@ -305,10 +318,10 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2">
             <button 
               onClick={handleGalleryClick}
-              className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center transition-all active:scale-90"
-              title="Import from Gallery"
+              className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center transition-all active:scale-90"
+              title="Import Gallery"
             >
-              <span className="material-symbols-outlined text-white text-2xl">photo_library</span>
+              <span className="material-symbols-outlined text-white text-xl">photo_library</span>
             </button>
           </div>
 
@@ -323,7 +336,7 @@ const App: React.FC = () => {
                   {status === CameraStatus.CAPTURING ? (
                     <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
                   ) : status === CameraStatus.PRINTING ? (
-                    <span className="material-symbols-outlined text-black text-3xl">refresh</span>
+                    <span className="material-symbols-outlined text-black text-3xl font-black">refresh</span>
                   ) : (
                     <div className="w-full h-full rounded-full bg-gradient-to-tr from-black/20 to-transparent"></div>
                   )}

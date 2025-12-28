@@ -4,7 +4,6 @@ export interface PolaroidData {
   url: string;
   date: string;
   label: string;
-  filterName: string;
 }
 
 export enum CameraStatus {
