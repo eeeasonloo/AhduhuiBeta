@@ -68,7 +68,7 @@ const CameraLens: React.FC<CameraLensProps> = ({ videoRef, isCapturing, facingMo
             autoPlay 
             muted 
             playsInline
-            className="absolute inset-0 w-full h-full object-cover rounded-full grayscale-[5%] contrast-[1.05] scale-110 bg-black"
+            className={`absolute inset-0 w-full h-full object-cover rounded-full grayscale-[5%] contrast-[1.05] scale-110 bg-black ${facingMode === 'user' ? 'scale-x-[-1.1]' : ''}`}
           />
 
           <div className="w-14 h-14 rounded-full bg-black/40 shadow-[inset_0_0_20px_rgba(255,255,255,0.1)] relative flex items-center justify-center border border-white/5 z-20 pointer-events-none">

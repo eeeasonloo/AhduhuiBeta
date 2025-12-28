@@ -3,6 +3,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { CameraStatus, PolaroidData } from './types';
 import CameraLens from './components/CameraLens';
 import Polaroid from './components/Polaroid';
+import Customizer from './components/Customizer';
+import { modifyImageWithAI } from './services/geminiService';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<CameraStatus>(CameraStatus.IDLE);
@@ -12,6 +14,8 @@ const App: React.FC = () => {
   const [showFlash, setShowFlash] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [caption, setCaption] = useState('');
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
   
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
@@ -50,9 +54,18 @@ const App: React.FC = () => {
         
         ctx.clearRect(0, 0, 1024, 1024);
         
+        // Handle mirroring if front camera is used
+        if (!externalSrc && facingMode === 'user') {
+          ctx.translate(1024, 0);
+          ctx.scale(-1, 1);
+        }
+
         const x = (w - size) / 2;
         const y = (h - size) / 2;
         ctx.drawImage(img, x, y, size, size, 0, 0, 1024, 1024);
+        
+        // Reset transform
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         
         resolve(canvas.toDataURL('image/png'));
       };
@@ -71,7 +84,7 @@ const App: React.FC = () => {
         resolve(null);
       }
     });
-  }, []);
+  }, [facingMode]);
 
   const triggerPrint = (imageUrl: string, isGallery: boolean = false) => {
     const now = new Date();
@@ -81,7 +94,7 @@ const App: React.FC = () => {
       id: Math.random().toString(36).substr(2, 9),
       url: imageUrl,
       date: formattedDate,
-      label: isGallery ? 'GALLERY ARCHIVE' : 'INSTANT FILM'
+      label: isGallery ? 'GALLERY ARCHIVE' : (aiPrompt ? 'GENAI ENHANCED' : 'INSTANT FILM')
     };
     
     setLastPolaroid(newPolaroid);
@@ -99,11 +112,25 @@ const App: React.FC = () => {
     
     await new Promise(r => setTimeout(r, 300));
     
-    const imgData = await captureFrame();
+    let imgData = await captureFrame();
     if (!imgData) {
       setErrorMsg("Unable to access camera frame.");
       setStatus(CameraStatus.IDLE);
       return;
+    }
+
+    if (aiPrompt.trim()) {
+      try {
+        const transformed = await modifyImageWithAI(imgData, aiPrompt);
+        if (transformed) {
+          imgData = transformed;
+        } else {
+          setErrorMsg("AI transformation failed. Printing original.");
+        }
+      } catch (err) {
+        console.error("AI Error:", err);
+        setErrorMsg("AI Engine busy. Printing original.");
+      }
     }
 
     triggerPrint(imgData);
@@ -212,8 +239,12 @@ const App: React.FC = () => {
       const base64 = event.target?.result as string;
       setStatus(CameraStatus.CAPTURING);
       
-      const processedImg = await captureFrame(base64);
+      let processedImg = await captureFrame(base64);
       if (processedImg) {
+        if (aiPrompt.trim()) {
+          const transformed = await modifyImageWithAI(processedImg, aiPrompt);
+          if (transformed) processedImg = transformed;
+        }
         triggerPrint(processedImg, true);
       } else {
         setStatus(CameraStatus.IDLE);
@@ -315,13 +346,21 @@ const App: React.FC = () => {
       <div className="fixed bottom-0 inset-x-0 z-[150] h-32 flex items-center justify-center px-8 bg-gradient-to-t from-black via-black/90 to-transparent">
         <div className="w-full max-w-sm flex items-center justify-between">
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             <button 
               onClick={handleGalleryClick}
               className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center transition-all active:scale-90"
               title="Import Gallery"
             >
               <span className="material-symbols-outlined text-white text-xl">photo_library</span>
+            </button>
+
+            <button 
+              onClick={() => setIsCustomizing(true)}
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-all active:scale-90 border ${aiPrompt ? 'bg-indigo-600 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'bg-white/5 border-white/10'}`}
+              title="Lens Customizer"
+            >
+              <span className={`material-symbols-outlined text-xl ${aiPrompt ? 'text-white' : 'text-white/60'}`}>tune</span>
             </button>
           </div>
 
@@ -343,6 +382,12 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
+            {aiPrompt && status === CameraStatus.IDLE && (
+              <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-indigo-500"></span>
+              </div>
+            )}
           </button>
 
           <button 
@@ -361,6 +406,14 @@ const App: React.FC = () => {
       </div>
 
       <div className={`transition-all duration-1000 ease-in-out ${status === CameraStatus.PRINTING ? 'h-[460px]' : 'h-12'}`}></div>
+
+      {isCustomizing && (
+        <Customizer 
+          onClose={() => setIsCustomizing(false)} 
+          onSetAiPrompt={setAiPrompt} 
+          currentAiPrompt={aiPrompt} 
+        />
+      )}
 
     </div>
   );
